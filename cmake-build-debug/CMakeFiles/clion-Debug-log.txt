@@ -1,5 +1,5 @@
 /home/michael/temp/cmake-3.29.8/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "Unix Makefiles" -S /home/michael/CLionProjects/boids -B /home/michael/CLionProjects/boids/cmake-build-debug
--- Found SFML 2.6.1 in /usr/lib/x86_64-linux-gnu/cmake/SFML
+-- Found SFML 2.5.1 in /usr/local/lib/cmake/SFML
 -- Configuring done (0.0s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/michael/CLionProjects/boids/cmake-build-debug

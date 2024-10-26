@@ -3,6 +3,8 @@
 #include <iostream>
 #include <chrono>
 #include <random>
+
+
 const int NUM_BOIDS = 300;
 
 // Constants for Boid behavior

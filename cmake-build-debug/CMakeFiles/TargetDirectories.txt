@@ -1,3 +1,4 @@
-/home/michael/CLionProjects/boids/cmake-build-debug/CMakeFiles/sequential.dir
+/home/michael/CLionProjects/boids/cmake-build-debug/CMakeFiles/boids_visualization.dir
+/home/michael/CLionProjects/boids/cmake-build-debug/CMakeFiles/boids_aos_vs_soa.dir
 /home/michael/CLionProjects/boids/cmake-build-debug/CMakeFiles/edit_cache.dir
 /home/michael/CLionProjects/boids/cmake-build-debug/CMakeFiles/rebuild_cache.dir
