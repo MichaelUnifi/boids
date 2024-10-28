@@ -181,7 +181,7 @@ int main() {
             // Create a line (rectangle) to represent the boid's orientation
             float length = 10.0f; // Line length
             sf::RectangleShape boidShape(sf::Vector2f(length, 2.0f)); // Width of 2 for thin line
-            boidShape.setFillColor(sf::Color::White);
+            boidShape.setFillColor(sf::Color(255, 105, 180));
 
             // Position the line at the boid's location
             boidShape.setPosition(boids[i].x, boids[i].y);

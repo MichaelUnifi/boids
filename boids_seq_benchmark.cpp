@@ -2,9 +2,15 @@
 #include <iostream>
 #include <chrono>
 #include <random>
+#include <unordered_map>
+#include <nlohmann/json.hpp>
+#include <fstream>
+#include <string>
 
-const int NUM_ITERATIONS = 10000;
-const int NUM_BOIDS = 300;
+
+const int NUM_MEASUREMENTS = 10;
+const int NUM_ITERATIONS = 1000;
+const int NUM_BOIDS = 1000;
 
 // Constants for Boid behavior
 const float TURN_FACTOR = 0.2f;
@@ -22,6 +28,23 @@ const int TOP_MARGIN = 380;
 const int BOTTOM_MARGIN = 100;
 const int LEFT_MARGIN = 100;
 const int RIGHT_MARGIN = 620;
+
+void saveMapToJSON(const std::unordered_map<int, std::chrono::duration<double>>& myMap, const std::string& filename) {
+
+    nlohmann::json j_map;
+    for (const auto& pair : myMap) {
+        j_map[std::to_string(pair.first)] = pair.second.count(); // Convert duration to double (seconds)
+    }
+
+    std::ofstream file(filename);
+    if (file.is_open()) {
+        file << j_map.dump(4); // Pretty-print with 4 spaces indentation
+        file.close();
+        std::cout << "Map saved to " << filename << " successfully." << std::endl;
+    } else {
+        std::cerr << "Could not open file for writing." << std::endl;
+    }
+}
 
 // Random value helper
 float randomFloat(float min, float max) {
@@ -280,47 +303,64 @@ void soa_update(int i, BoidsList& boids, ParametersList& params) {
 
 int main() {
 
-    //sequential aos
-    Boid boids_aos[NUM_BOIDS];
-    Parameters parameters_aos[NUM_BOIDS];
+    std::unordered_map<int, std::chrono::duration<double>> aos_map;
+    std::unordered_map<int, std::chrono::duration<double>> soa_map;
 
-    for (int i = 0; i < NUM_BOIDS; ++i) {
-        boids_aos[i] = Boid();
-    }
-    auto start_aos = std::chrono::high_resolution_clock::now();
+    for(int l = 10; l<NUM_BOIDS; l+=10) {
 
-    for(int j=0; j<NUM_ITERATIONS; j++) {
-        for (int i = 0; i < NUM_BOIDS; ++i) {
-            aos_getParameters(boids_aos[i], boids_aos, parameters_aos[i]);
+        std::chrono::duration<double> aos_values[NUM_MEASUREMENTS];
+        std::chrono::duration<double> soa_values[NUM_MEASUREMENTS];
+
+        for(int t = 0; t < NUM_MEASUREMENTS; t++) {
+            //sequential aos
+            Boid boids_aos[NUM_BOIDS];
+            Parameters parameters_aos[NUM_BOIDS];
+
+            for (int i = 0; i < NUM_BOIDS; ++i) {
+                boids_aos[i] = Boid();
+            }
+            auto start_aos = std::chrono::high_resolution_clock::now();
+
+            for(int j=0; j<NUM_ITERATIONS; j++) {
+                for (int i = 0; i < NUM_BOIDS; ++i) {
+                    aos_getParameters(boids_aos[i], boids_aos, parameters_aos[i]);
+                }
+
+                for (int i = 0; i < NUM_BOIDS; ++i) {
+                    aos_update(boids_aos[i], parameters_aos[i]);
+                }
+            }
+
+            auto end_aos = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed_aos = end_aos - start_aos;
+            aos_values[t] = elapsed_aos;
+
+            //sequential soa
+            BoidsList boids_soa;
+            ParametersList parameters_soa;
+
+            auto start_soa = std::chrono::high_resolution_clock::now();
+
+            for(int i=0; i<NUM_ITERATIONS; i++) {
+                soa_getParameters(boids_soa, parameters_soa);
+            }
+            for (int i = 0; i < NUM_BOIDS; ++i) {
+                soa_update(i, boids_soa, parameters_soa);
+            }
+
+            auto end_soa = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed_soa = end_soa - start_soa;
+            soa_values[t] = elapsed_soa;
         }
+        aos_map[l] = std::accumulate(aos_values, aos_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0)) / NUM_MEASUREMENTS;
+        soa_map[l] = std::accumulate(soa_values, soa_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0)) / NUM_MEASUREMENTS;
 
-        for (int i = 0; i < NUM_BOIDS; ++i) {
-            aos_update(boids_aos[i], parameters_aos[i]);
-        }
+        std::cout<<"Number of boids: "<<l<<std::endl;
     }
 
-    auto end_aos = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end_aos - start_aos;
-    std::cout << "AoS Time: " << elapsed.count() << " seconds\n";
 
-    //sequential soa
-    BoidsList boids_soa;
-    ParametersList parameters_soa;
-
-    auto start_soa = std::chrono::high_resolution_clock::now();
-
-    for(int j=0; j<NUM_ITERATIONS; j++) {
-        soa_getParameters(boids_soa, parameters_soa);
-
-        for (int i = 0; i < NUM_BOIDS; ++i) {
-            soa_update(i, boids_soa, parameters_soa);
-        }
-    }
-
-    auto end_soa = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed_soa = end_soa - start_soa;
-    std::cout << "SoA Time: " << elapsed_soa.count() << " seconds\n";
-
+    saveMapToJSON(aos_map, "aos_map_data.json");
+    saveMapToJSON(soa_map, "soa_map_data.json");
 
     return 0;
 }
