@@ -21,3 +21,5 @@ target_link_libraries(boids_visualization sfml-graphics sfml-window sfml-system 
 
 
 add_executable(boids_aos_vs_soa boids_seq_benchmark.cpp)
+add_executable(boids_parallel_benchmark boids_parallel_benchmark.cpp)
+target_link_libraries(boids_parallel_benchmark ${OpenMP_CXX_FLAGS})

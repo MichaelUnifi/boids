@@ -7,9 +7,10 @@
 #include <fstream>
 #include <string>
 
+const int CACHE_LINE_SIZE = 64;
 
 const int NUM_MEASUREMENTS = 10;
-const int NUM_ITERATIONS = 1000;
+const int NUM_ITERATIONS = 5000;
 const int NUM_BOIDS = 1000;
 
 // Constants for Boid behavior
@@ -52,9 +53,10 @@ float randomFloat(float min, float max) {
 }
 
 
-struct Boid {
-    float x, y;   // Position
-    float vx, vy; // Velocity
+struct alignas(CACHE_LINE_SIZE) Boid {
+    alignas(CACHE_LINE_SIZE) float  x, y;   // Position
+    alignas(CACHE_LINE_SIZE) float vx, vy; // Velocity
+    char pad[CACHE_LINE_SIZE > sizeof(float) * 4 ? CACHE_LINE_SIZE - sizeof(float) * 4 : 1];
 
     Boid(const float px,const float py){
         x = px;
@@ -186,59 +188,6 @@ struct ParametersList {
     }
 };
 
-void aos_getParameters(Boid& b, Boid boids[], Parameters& params) {
-    for (int j = 0; j < NUM_BOIDS; ++j) {
-        Boid& other = boids[j];
-        if (&b == &other) continue;
-
-        float dx = b.x - other.x;
-        float dy = b.y - other.y;
-
-        if (std::abs(dx) < VISUAL_RANGE && std::abs(dy) < VISUAL_RANGE) {
-            float squared_dist = dx * dx + dy * dy;
-
-            if (squared_dist < PROTECTED_RANGE * PROTECTED_RANGE) {
-                params.close_dx += dx;
-                params.close_dy += dy;
-            } else if (squared_dist < VISUAL_RANGE * VISUAL_RANGE) {
-                params.avg_x += other.x;
-                params.avg_y += other.y;
-                params.avg_vx += other.vx;
-                params.avg_vy += other.vy;
-                params.neighboring_count += 1;
-            }
-        }
-    }
-}
-
-void soa_getParameters(BoidsList& b, ParametersList& params) {
-
-    for (int i = 0; i < NUM_BOIDS; ++i) {
-    params.reset();
-        for (int j = 0; j < NUM_BOIDS; ++j) {
-            if (i == j) continue;
-
-            float dx = b.x[i] - b.x[j];
-            float dy = b.y[i] - b.y[j];
-
-            if (std::abs(dx) < VISUAL_RANGE && std::abs(dy) < VISUAL_RANGE) {
-                float squared_dist = dx * dx + dy * dy;
-
-                if (squared_dist < PROTECTED_RANGE * PROTECTED_RANGE) {
-                    params.close_dx[i] += dx;
-                    params.close_dy[i] += dy;
-                } else if (squared_dist < VISUAL_RANGE * VISUAL_RANGE) {
-                    params.avg_x[i] += b.x[j];
-                    params.avg_y[i] += b.y[j];
-                    params.avg_vx[i] += b.vx[j];
-                    params.avg_vy[i] += b.vy[j];
-                    params.neighboring_count[i] += 1;
-                }
-            }
-        }
-    }
-}
-
 
 void aos_update(Boid& boid, Parameters& params) {
     if (params.neighboring_count > 0) {
@@ -303,15 +252,9 @@ void soa_update(int i, BoidsList& boids, ParametersList& params) {
 
 int main() {
 
-    std::unordered_map<int, std::chrono::duration<double>> aos_map;
-    std::unordered_map<int, std::chrono::duration<double>> soa_map;
-
-    for(int l = 10; l<NUM_BOIDS; l+=10) {
-
-        std::chrono::duration<double> aos_values[NUM_MEASUREMENTS];
-        std::chrono::duration<double> soa_values[NUM_MEASUREMENTS];
-
-        for(int t = 0; t < NUM_MEASUREMENTS; t++) {
+    std::chrono::duration<double> aos_values[NUM_MEASUREMENTS];
+    std::chrono::duration<double> soa_values[NUM_MEASUREMENTS];
+    for(int t = 0; t < NUM_MEASUREMENTS; t++) {
             //sequential aos
             Boid boids_aos[NUM_BOIDS];
             Parameters parameters_aos[NUM_BOIDS];
@@ -323,11 +266,59 @@ int main() {
 
             for(int j=0; j<NUM_ITERATIONS; j++) {
                 for (int i = 0; i < NUM_BOIDS; ++i) {
-                    aos_getParameters(boids_aos[i], boids_aos, parameters_aos[i]);
+                    parameters_aos[i].reset();
+                    for (int k = 0; k < NUM_BOIDS; ++k) {
+                        if (i != k) continue;
+
+                        float dx = boids_aos[i].x - boids_aos[k].x;
+                        float dy = boids_aos[i].y - boids_aos[k].y;
+
+                        if (std::abs(dx) < VISUAL_RANGE && std::abs(dy) < VISUAL_RANGE) {
+                            float squared_dist = dx * dx + dy * dy;
+
+                            if (squared_dist < PROTECTED_RANGE * PROTECTED_RANGE) {
+                                parameters_aos[i].close_dx += dx;
+                                parameters_aos[i].close_dy += dy;
+                            } else if (squared_dist < VISUAL_RANGE * VISUAL_RANGE) {
+                                parameters_aos[i].avg_x += boids_aos[k].x;
+                                parameters_aos[i].avg_y += boids_aos[k].y;
+                                parameters_aos[i].avg_vx += boids_aos[k].vx;
+                                parameters_aos[i].avg_vy += boids_aos[k].vy;
+                                parameters_aos[i].neighboring_count += 1;
+                            }
+                        }
+                    }
                 }
 
                 for (int i = 0; i < NUM_BOIDS; ++i) {
-                    aos_update(boids_aos[i], parameters_aos[i]);
+                    if (parameters_aos[i].neighboring_count > 0) {
+                        parameters_aos[i].avg_x /= parameters_aos[i].neighboring_count;
+                        parameters_aos[i].avg_y /= parameters_aos[i].neighboring_count;
+                        parameters_aos[i].avg_vx /= parameters_aos[i].neighboring_count;
+                        parameters_aos[i].avg_vy /= parameters_aos[i].neighboring_count;
+
+                        boids_aos[i].vx += (parameters_aos[i].avg_x - boids_aos[i].x) * CENTERING_FACTOR + (parameters_aos[i].avg_vx - boids_aos[i].vx) * MATCHING_FACTOR;
+                        boids_aos[i].vy += (parameters_aos[i].avg_y - boids_aos[i].y) * CENTERING_FACTOR + (parameters_aos[i].avg_vy - boids_aos[i].vy) * MATCHING_FACTOR;
+                        boids_aos[i].vx += parameters_aos[i].close_dx * AVOID_FACTOR;
+                        boids_aos[i].vy += parameters_aos[i].close_dy * AVOID_FACTOR;
+                    }
+
+                    if (boids_aos[i].y > TOP_MARGIN) boids_aos[i].vy -= TURN_FACTOR;
+                    if (boids_aos[i].x > RIGHT_MARGIN) boids_aos[i].vx -= TURN_FACTOR;
+                    if (boids_aos[i].x < LEFT_MARGIN) boids_aos[i].vx += TURN_FACTOR;
+                    if (boids_aos[i].y < BOTTOM_MARGIN) boids_aos[i].vy += TURN_FACTOR;
+
+                    float speed = std::sqrt(boids_aos[i].vx * boids_aos[i].vx + boids_aos[i].vy * boids_aos[i].vy);
+                    if (speed > MAX_SPEED) {
+                        boids_aos[i].vx = (boids_aos[i].vx / speed) * MAX_SPEED;
+                        boids_aos[i].vy = (boids_aos[i].vy / speed) * MAX_SPEED;
+                    } else if (speed < MIN_SPEED) {
+                        boids_aos[i].vx = (boids_aos[i].vx / speed) * MIN_SPEED;
+                        boids_aos[i].vy = (boids_aos[i].vy / speed) * MIN_SPEED;
+                    }
+
+                    boids_aos[i].x += boids_aos[i].vx;
+                    boids_aos[i].y += boids_aos[i].vy;
                 }
             }
 
@@ -341,26 +332,71 @@ int main() {
 
             auto start_soa = std::chrono::high_resolution_clock::now();
 
-            for(int i=0; i<NUM_ITERATIONS; i++) {
-                soa_getParameters(boids_soa, parameters_soa);
-            }
-            for (int i = 0; i < NUM_BOIDS; ++i) {
-                soa_update(i, boids_soa, parameters_soa);
+            for(int i = 0; i < NUM_ITERATIONS; i++) {
+                parameters_soa.reset();//here it's a global reset, so we do it only once
+                for (int j = 0; j < NUM_BOIDS; ++j) {
+                    for(int k = 0; k < NUM_BOIDS; ++k) {
+                        if (k != j) continue;
+
+                        float dx = boids_soa.x[j] - boids_soa.x[k];
+                        float dy = boids_soa.y[j] - boids_soa.y[k];
+
+                        if (std::abs(dx) < VISUAL_RANGE && std::abs(dy) < VISUAL_RANGE) {
+                            float squared_dist = dx * dx + dy * dy;
+
+                            if (squared_dist < PROTECTED_RANGE * PROTECTED_RANGE) {
+                                parameters_soa.close_dx[j] += dx;
+                                parameters_soa.close_dy[j] += dy;
+                            } else if (squared_dist < VISUAL_RANGE * VISUAL_RANGE) {
+                                parameters_soa.avg_x[j] += boids_soa.x[k];
+                                parameters_soa.avg_y[j] += boids_soa.y[k];
+                                parameters_soa.avg_vx[j] += boids_soa.vx[k];
+                                parameters_soa.avg_vy[j] += boids_soa.vy[k];
+                                parameters_soa.neighboring_count[j] += 1;
+                            }
+                        }
+                    }
+
+                }
+                for (int j = 0; i < NUM_BOIDS; ++i) {
+                    if (parameters_soa.neighboring_count[i] > 0) {
+                        parameters_soa.avg_x[i] /= parameters_soa.neighboring_count[i];
+                        parameters_soa.avg_y[i] /= parameters_soa.neighboring_count[i];
+                        parameters_soa.avg_vx[i] /= parameters_soa.neighboring_count[i];
+                        parameters_soa.avg_vy[i] /= parameters_soa.neighboring_count[i];
+                        boids_soa.vx[i] += (parameters_soa.avg_x[i] - boids_soa.x[i]) * CENTERING_FACTOR + (parameters_soa.avg_vx[i] - boids_soa.vx[i]) * MATCHING_FACTOR;
+                        boids_soa.vy[i] += (parameters_soa.avg_y[i] - boids_soa.y[i]) * CENTERING_FACTOR + (parameters_soa.avg_vy[i] - boids_soa.vy[i]) * MATCHING_FACTOR;
+                        boids_soa.vx[i] += parameters_soa.close_dx[i] * AVOID_FACTOR;
+                        boids_soa.vy[i] += parameters_soa.close_dy[i] * AVOID_FACTOR;
+                    }
+
+                    if (boids_soa.y[i] > TOP_MARGIN) boids_soa.vy[i] -= TURN_FACTOR;
+                    if (boids_soa.x[i] > RIGHT_MARGIN) boids_soa.vx[i] -= TURN_FACTOR;
+                    if (boids_soa.x[i] < LEFT_MARGIN) boids_soa.vx[i] += TURN_FACTOR;
+                    if (boids_soa.y[i] < BOTTOM_MARGIN) boids_soa.vy[i] += TURN_FACTOR;
+
+                    float speed = std::sqrt(boids_soa.vx[i] * boids_soa.vx[i] + boids_soa.vy[i] * boids_soa.vy[i]);
+                    if (speed > MAX_SPEED) {
+                        boids_soa.vx[i] = (boids_soa.vx[i] / speed) * MAX_SPEED;
+                        boids_soa.vy[i] = (boids_soa.vy[i] / speed) * MAX_SPEED;
+                    } else if (speed < MIN_SPEED) {
+                        boids_soa.vx[i] = (boids_soa.vx[i] / speed) * MIN_SPEED;
+                        boids_soa.vy[i] = (boids_soa.vy[i] / speed) * MIN_SPEED;
+                    }
+
+                    boids_soa.x[i] += boids_soa.vx[i];
+                    boids_soa.y[i] += boids_soa.vy[i];
+                }
             }
 
             auto end_soa = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed_soa = end_soa - start_soa;
             soa_values[t] = elapsed_soa;
         }
-        aos_map[l] = std::accumulate(aos_values, aos_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0)) / NUM_MEASUREMENTS;
-        soa_map[l] = std::accumulate(soa_values, soa_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0)) / NUM_MEASUREMENTS;
-
-        std::cout<<"Number of boids: "<<l<<std::endl;
-    }
 
 
-    saveMapToJSON(aos_map, "aos_map_data.json");
-    saveMapToJSON(soa_map, "soa_map_data.json");
+    std::cout<<"aos average time: "<<std::accumulate(aos_values, aos_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0)).count()/NUM_MEASUREMENTS<<std::endl;
+    std::cout<<"soa average time: "<<std::accumulate(soa_values, soa_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0)).count()/NUM_MEASUREMENTS<<std::endl;
 
     return 0;
 }
