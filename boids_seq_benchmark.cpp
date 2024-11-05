@@ -9,8 +9,8 @@
 
 const int CACHE_LINE_SIZE = 64;
 
-const int NUM_MEASUREMENTS = 10;
-const int NUM_ITERATIONS = 5000;
+const int NUM_MEASUREMENTS = 1;
+const int NUM_ITERATIONS = 1000;
 const int NUM_BOIDS = 1000;
 
 // Constants for Boid behavior
@@ -94,11 +94,12 @@ struct alignas(CACHE_LINE_SIZE) Boid {
     }
 };
 
-struct BoidsList {
-    float x[NUM_BOIDS];
-    float y[NUM_BOIDS];
-    float vx[NUM_BOIDS];
-    float vy[NUM_BOIDS];
+struct alignas(CACHE_LINE_SIZE) BoidsList {
+    alignas(CACHE_LINE_SIZE) float x[NUM_BOIDS];
+    alignas(CACHE_LINE_SIZE) float y[NUM_BOIDS];
+    alignas(CACHE_LINE_SIZE) float vx[NUM_BOIDS];
+    alignas(CACHE_LINE_SIZE) float vy[NUM_BOIDS];
+    char pad[CACHE_LINE_SIZE > sizeof(float) * 4 * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * 4 * NUM_BOIDS : 1];
 
     BoidsList() {
         for (int i = 0; i < NUM_BOIDS; ++i) {
@@ -132,14 +133,15 @@ struct BoidsList {
 
 };
 
-struct Parameters {
-    float close_dx;
-    float close_dy;
-    float avg_vx;
-    float avg_vy;
-    float avg_x;
-    float avg_y;
-    float neighboring_count;
+struct alignas(CACHE_LINE_SIZE)Parameters {
+    alignas(CACHE_LINE_SIZE) float close_dx;
+    alignas(CACHE_LINE_SIZE) float close_dy;
+    alignas(CACHE_LINE_SIZE) float avg_vx;
+    alignas(CACHE_LINE_SIZE) float avg_vy;
+    alignas(CACHE_LINE_SIZE) float avg_x;
+    alignas(CACHE_LINE_SIZE) float avg_y;
+    alignas(CACHE_LINE_SIZE) float neighboring_count;
+    char pad[CACHE_LINE_SIZE > sizeof(float) * 7 ? CACHE_LINE_SIZE - sizeof(float ) * 7 : 1];
 
     Parameters() : close_dx(0), close_dy(0), avg_vx(0), avg_vy(0), avg_x(0), avg_y(0), neighboring_count(0) {}
 
@@ -154,14 +156,15 @@ struct Parameters {
     }
 };
 
-struct ParametersList {
-    float close_dx[NUM_BOIDS];
-    float close_dy[NUM_BOIDS];
-    float avg_vx[NUM_BOIDS];
-    float avg_vy[NUM_BOIDS];
-    float avg_x[NUM_BOIDS];
-    float avg_y[NUM_BOIDS];
-    float neighboring_count[NUM_BOIDS];
+struct alignas(CACHE_LINE_SIZE) ParametersList {
+    alignas(CACHE_LINE_SIZE) float close_dx[NUM_BOIDS];
+    alignas(CACHE_LINE_SIZE) float close_dy[NUM_BOIDS];
+    alignas(CACHE_LINE_SIZE) float avg_vx[NUM_BOIDS];
+    alignas(CACHE_LINE_SIZE) float avg_vy[NUM_BOIDS];
+    alignas(CACHE_LINE_SIZE) float avg_x[NUM_BOIDS];
+    alignas(CACHE_LINE_SIZE) float avg_y[NUM_BOIDS];
+    alignas(CACHE_LINE_SIZE) float neighboring_count[NUM_BOIDS];
+    char pad[CACHE_LINE_SIZE > sizeof(float) * 7 * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * 7 * NUM_BOIDS : 1];
 
     ParametersList() {
         for (int i = 0; i < NUM_BOIDS; ++i) {
@@ -268,7 +271,7 @@ int main() {
                 for (int i = 0; i < NUM_BOIDS; ++i) {
                     parameters_aos[i].reset();
                     for (int k = 0; k < NUM_BOIDS; ++k) {
-                        if (i != k) continue;
+                        if (i == k) continue;
 
                         float dx = boids_aos[i].x - boids_aos[k].x;
                         float dy = boids_aos[i].y - boids_aos[k].y;
@@ -336,7 +339,7 @@ int main() {
                 parameters_soa.reset();//here it's a global reset, so we do it only once
                 for (int j = 0; j < NUM_BOIDS; ++j) {
                     for(int k = 0; k < NUM_BOIDS; ++k) {
-                        if (k != j) continue;
+                        if (k == j) continue;
 
                         float dx = boids_soa.x[j] - boids_soa.x[k];
                         float dy = boids_soa.y[j] - boids_soa.y[k];
@@ -358,30 +361,30 @@ int main() {
                     }
 
                 }
-                for (int j = 0; i < NUM_BOIDS; ++i) {
+                for (int j = 0; j < NUM_BOIDS; ++j) {
                     if (parameters_soa.neighboring_count[i] > 0) {
-                        parameters_soa.avg_x[i] /= parameters_soa.neighboring_count[i];
-                        parameters_soa.avg_y[i] /= parameters_soa.neighboring_count[i];
-                        parameters_soa.avg_vx[i] /= parameters_soa.neighboring_count[i];
-                        parameters_soa.avg_vy[i] /= parameters_soa.neighboring_count[i];
-                        boids_soa.vx[i] += (parameters_soa.avg_x[i] - boids_soa.x[i]) * CENTERING_FACTOR + (parameters_soa.avg_vx[i] - boids_soa.vx[i]) * MATCHING_FACTOR;
-                        boids_soa.vy[i] += (parameters_soa.avg_y[i] - boids_soa.y[i]) * CENTERING_FACTOR + (parameters_soa.avg_vy[i] - boids_soa.vy[i]) * MATCHING_FACTOR;
-                        boids_soa.vx[i] += parameters_soa.close_dx[i] * AVOID_FACTOR;
-                        boids_soa.vy[i] += parameters_soa.close_dy[i] * AVOID_FACTOR;
+                        parameters_soa.avg_x[j] /= parameters_soa.neighboring_count[j];
+                        parameters_soa.avg_y[j] /= parameters_soa.neighboring_count[j];
+                        parameters_soa.avg_vx[j] /= parameters_soa.neighboring_count[j];
+                        parameters_soa.avg_vy[j] /= parameters_soa.neighboring_count[j];
+                        boids_soa.vx[j] += (parameters_soa.avg_x[j] - boids_soa.x[j]) * CENTERING_FACTOR + (parameters_soa.avg_vx[j] - boids_soa.vx[j]) * MATCHING_FACTOR;
+                        boids_soa.vy[j] += (parameters_soa.avg_y[j] - boids_soa.y[j]) * CENTERING_FACTOR + (parameters_soa.avg_vy[j] - boids_soa.vy[j]) * MATCHING_FACTOR;
+                        boids_soa.vx[j] += parameters_soa.close_dx[j] * AVOID_FACTOR;
+                        boids_soa.vy[j] += parameters_soa.close_dy[j] * AVOID_FACTOR;
                     }
 
-                    if (boids_soa.y[i] > TOP_MARGIN) boids_soa.vy[i] -= TURN_FACTOR;
-                    if (boids_soa.x[i] > RIGHT_MARGIN) boids_soa.vx[i] -= TURN_FACTOR;
-                    if (boids_soa.x[i] < LEFT_MARGIN) boids_soa.vx[i] += TURN_FACTOR;
-                    if (boids_soa.y[i] < BOTTOM_MARGIN) boids_soa.vy[i] += TURN_FACTOR;
+                    if (boids_soa.y[j] > TOP_MARGIN) boids_soa.vy[j] -= TURN_FACTOR;
+                    if (boids_soa.x[j] > RIGHT_MARGIN) boids_soa.vx[j] -= TURN_FACTOR;
+                    if (boids_soa.x[j] < LEFT_MARGIN) boids_soa.vx[j] += TURN_FACTOR;
+                    if (boids_soa.y[j] < BOTTOM_MARGIN) boids_soa.vy[j] += TURN_FACTOR;
 
                     float speed = std::sqrt(boids_soa.vx[i] * boids_soa.vx[i] + boids_soa.vy[i] * boids_soa.vy[i]);
                     if (speed > MAX_SPEED) {
-                        boids_soa.vx[i] = (boids_soa.vx[i] / speed) * MAX_SPEED;
-                        boids_soa.vy[i] = (boids_soa.vy[i] / speed) * MAX_SPEED;
+                        boids_soa.vx[j] = (boids_soa.vx[j] / speed) * MAX_SPEED;
+                        boids_soa.vy[j] = (boids_soa.vy[j] / speed) * MAX_SPEED;
                     } else if (speed < MIN_SPEED) {
-                        boids_soa.vx[i] = (boids_soa.vx[i] / speed) * MIN_SPEED;
-                        boids_soa.vy[i] = (boids_soa.vy[i] / speed) * MIN_SPEED;
+                        boids_soa.vx[j] = (boids_soa.vx[j] / speed) * MIN_SPEED;
+                        boids_soa.vy[j] = (boids_soa.vy[j] / speed) * MIN_SPEED;
                     }
 
                     boids_soa.x[i] += boids_soa.vx[i];
