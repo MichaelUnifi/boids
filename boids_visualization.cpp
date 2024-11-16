@@ -4,10 +4,9 @@
 #include <chrono>
 #include <random>
 
-
 const int NUM_BOIDS = 300;
 
-// Constants for Boid behavior
+// Constants for Boid behavior, note that the number of boids has been reduced to 300 for a simple visualization
 const float TURN_FACTOR = 0.2f;
 const float MAX_SPEED = 6.0f;
 const float MIN_SPEED = 3.0f;
