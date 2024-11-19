@@ -1,5 +1,6 @@
 /home/michael/CLionProjects/boids/cmake-build-debug/CMakeFiles/boids_visualization.dir
 /home/michael/CLionProjects/boids/cmake-build-debug/CMakeFiles/boids_seq_benchmark.dir
 /home/michael/CLionProjects/boids/cmake-build-debug/CMakeFiles/boids_parallel_benchmark.dir
+/home/michael/CLionProjects/boids/cmake-build-debug/CMakeFiles/naive_parallel.dir
 /home/michael/CLionProjects/boids/cmake-build-debug/CMakeFiles/edit_cache.dir
 /home/michael/CLionProjects/boids/cmake-build-debug/CMakeFiles/rebuild_cache.dir

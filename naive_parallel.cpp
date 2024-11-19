@@ -41,17 +41,17 @@ int main() {
             omp_set_num_threads(num_threads);
             std::cout<<"Running with "<<omp_get_max_threads()<<" threads"<<std::endl;
             aos_values[num_threads] = std::chrono::duration<double>(0);
-            #pragma omp parallel for
             for (int i = 0; i < NUM_BOIDS; ++i) {
                 boids_aos[i] = Boid();
             }
             for(int i = 0; i<NUM_MEASUREMENTS; i++) {
                 auto start_aos = std::chrono::high_resolution_clock::now();
-                #pragma omp parallel shared(boids_aos) private(parameters_aos) num_threads(num_threads)
+                #pragma omp parallel num_threads(num_threads)
                 {
                     #pragma omp for schedule(static)
                     for (int j = 0; j < NUM_BOIDS; ++j) {//get the parameters
-                        parameters_aos[j].reset();
+                        #pragma omp critical
+                        {parameters_aos[j].reset();}
                         for (int k = 0; k < NUM_BOIDS; ++k) {
                             if (j == k) continue;// avoid self-comparison
 
@@ -62,25 +62,34 @@ int main() {
                                 float squared_dist = dx * dx + dy * dy;
 
                                 if (squared_dist < PROTECTED_RANGE * PROTECTED_RANGE) {// check if the boid is too close
-                                    parameters_aos[j].close_dx += dx;
-                                    parameters_aos[j].close_dy += dy;
+                                    #pragma omp critical
+                                    {
+                                        parameters_aos[j].close_dx += dx;
+                                        parameters_aos[j].close_dy += dy;
+                                    }
                                 } else if (squared_dist < VISUAL_RANGE * VISUAL_RANGE) {// check if the other boid is visible
-                                    parameters_aos[j].avg_x += boids_aos[k].x;
-                                    parameters_aos[j].avg_y += boids_aos[k].y;
-                                    parameters_aos[j].avg_vx += boids_aos[k].vx;
-                                    parameters_aos[j].avg_vy += boids_aos[k].vy;
-                                    parameters_aos[j].neighboring_count += 1;
+                                    #pragma omp critical
+                                    {
+                                        parameters_aos[j].avg_x += boids_aos[k].x;
+                                        parameters_aos[j].avg_y += boids_aos[k].y;
+                                        parameters_aos[j].avg_vx += boids_aos[k].vx;
+                                        parameters_aos[j].avg_vy += boids_aos[k].vy;
+                                        parameters_aos[j].neighboring_count += 1;
+                                    }
                                 }
                             }
                         }
                     }
-                    #pragma omp for schedule(static)
+                    #pragma omp  for schedule(static)
                     for(int j = 0; j < NUM_BOIDS; ++j) {//update the boids
                         if (parameters_aos[j].neighboring_count > 0) {
-                            parameters_aos[j].avg_x /= parameters_aos[j].neighboring_count;
-                            parameters_aos[j].avg_y /= parameters_aos[j].neighboring_count;
-                            parameters_aos[j].avg_vx /= parameters_aos[j].neighboring_count;
-                            parameters_aos[j].avg_vy /= parameters_aos[j].neighboring_count;
+                            #pragma omp critical
+                            {
+                                parameters_aos[j].avg_x /= parameters_aos[j].neighboring_count;
+                                parameters_aos[j].avg_y /= parameters_aos[j].neighboring_count;
+                                parameters_aos[j].avg_vx /= parameters_aos[j].neighboring_count;
+                                parameters_aos[j].avg_vy /= parameters_aos[j].neighboring_count;
+                            }
 
                             float new_vx = boids_aos[j].vx;
                             float new_vy = boids_aos[j].vy;
@@ -111,16 +120,15 @@ int main() {
                             }
                         }
                     }
+                    auto end_aos = std::chrono::high_resolution_clock::now();
+                    std::chrono::duration<double> elapsed_aos = end_aos - start_aos;
+                    aos_values[num_threads] += elapsed_aos/NUM_MEASUREMENTS; //normalizing the time by the number
                 }
-                auto end_aos = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<double> elapsed_aos = end_aos - start_aos;
-                aos_values[num_threads] += elapsed_aos/NUM_MEASUREMENTS; //normalizing the time by the number
-
             }
             std::cout<<"parallel aos elapsed time - "<<num_threads<<" threads: "<<aos_values[t*2].count()<<std::endl;
         }
     }
-    saveMapToJSON(aos_values, "parallel_aos.json");
+    saveMapToJSON(aos_values, "naive_parallel_aos.json");
 
     //padded aos benchmark
     std::cout<<"Starting padded aos benchmark"<<std::endl;
@@ -134,17 +142,17 @@ int main() {
             omp_set_num_threads(num_threads);
             std::cout<<"Running with "<<omp_get_max_threads()<<" threads"<<std::endl;
             pad_aos_values[num_threads] = std::chrono::duration<double>(0);
-            #pragma omp parallel for
             for (int i = 0; i < NUM_BOIDS; ++i) {
                 pad_boids_aos[i] = PadBoid();
             }
             for(int i = 0; i<NUM_MEASUREMENTS; i++) {
                 auto pad_start_aos = std::chrono::high_resolution_clock::now();
-                #pragma omp parallel shared(pad_boids_aos) private(pad_parameters_aos) num_threads(num_threads)
+                #pragma omp parallel num_threads(num_threads)
                 {
                     #pragma omp for schedule(static)
                     for (int j = 0; j < NUM_BOIDS; ++j) {//get the parameters
-                        pad_parameters_aos[j].reset();
+                        #pragma omp critical
+                        {pad_parameters_aos[j].reset();}
                         for (int k = 0; k < NUM_BOIDS; ++k) {
                             if (j == k) continue;// avoid self-comparison
 
@@ -155,14 +163,20 @@ int main() {
                                 float squared_dist = dx * dx + dy * dy;
 
                                 if (squared_dist < PROTECTED_RANGE * PROTECTED_RANGE) {// check if the boid is too close
-                                    pad_parameters_aos[j].close_dx += dx;
-                                    pad_parameters_aos[j].close_dy += dy;
+                                    #pragma omp critical
+                                    {
+                                        pad_parameters_aos[j].close_dx += dx;
+                                        pad_parameters_aos[j].close_dy += dy;
+                                    }
                                 } else if (squared_dist < VISUAL_RANGE * VISUAL_RANGE) {// check if the other boid is visible
-                                    pad_parameters_aos[j].avg_x += pad_boids_aos[k].x;
-                                    pad_parameters_aos[j].avg_y += pad_boids_aos[k].y;
-                                    pad_parameters_aos[j].avg_vx += pad_boids_aos[k].vx;
-                                    pad_parameters_aos[j].avg_vy += pad_boids_aos[k].vy;
-                                    pad_parameters_aos[j].neighboring_count += 1;
+                                    #pragma omp critical
+                                    {
+                                        pad_parameters_aos[j].avg_x += pad_boids_aos[k].x;
+                                        pad_parameters_aos[j].avg_y += pad_boids_aos[k].y;
+                                        pad_parameters_aos[j].avg_vx += pad_boids_aos[k].vx;
+                                        pad_parameters_aos[j].avg_vy += pad_boids_aos[k].vy;
+                                        pad_parameters_aos[j].neighboring_count += 1;
+                                    }
                                 }
                             }
                         }
@@ -170,11 +184,13 @@ int main() {
                     #pragma omp for schedule(static)
                     for(int j = 0; j < NUM_BOIDS; ++j) {//update the boids
                         if (pad_parameters_aos[j].neighboring_count > 0) {
-                            pad_parameters_aos[j].avg_x /= pad_parameters_aos[j].neighboring_count;
-                            pad_parameters_aos[j].avg_y /= pad_parameters_aos[j].neighboring_count;
-                            pad_parameters_aos[j].avg_vx /= pad_parameters_aos[j].neighboring_count;
-                            pad_parameters_aos[j].avg_vy /= pad_parameters_aos[j].neighboring_count;
-
+                            #pragma omp critical
+                            {
+                                pad_parameters_aos[j].avg_x /= pad_parameters_aos[j].neighboring_count;
+                                pad_parameters_aos[j].avg_y /= pad_parameters_aos[j].neighboring_count;
+                                pad_parameters_aos[j].avg_vx /= pad_parameters_aos[j].neighboring_count;
+                                pad_parameters_aos[j].avg_vy /= pad_parameters_aos[j].neighboring_count;
+                            }
                             float new_vx = pad_boids_aos[j].vx;
                             float new_vy = pad_boids_aos[j].vy;
                             float new_x = pad_boids_aos[j].x;
@@ -212,7 +228,7 @@ int main() {
             std::cout<<"parallel padded aos elapsed time - "<<num_threads<<" threads: "<<pad_aos_values[t*2].count()<<std::endl;
         }
     }
-    saveMapToJSON(pad_aos_values, "parallel_pad_aos.json");
+    saveMapToJSON(pad_aos_values, "naive_parallel_pad_aos.json");
 
     //parallel soa benchmark
     std::cout<<"Starting soa benchmark"<<std::endl;
@@ -228,11 +244,12 @@ int main() {
             soa_values[num_threads] = std::chrono::duration<double>(0);
             for(int i = 0; i<NUM_MEASUREMENTS; i++) {
                 auto start_soa = std::chrono::high_resolution_clock::now();
-                #pragma omp parallel shared(boids_soa) private(parameters_soa) num_threads(num_threads)
+                #pragma omp parallel num_threads(num_threads)
                 {
                     #pragma omp for schedule(static)
                     for (int j = 0; j < NUM_BOIDS; ++j) {//get the parameters
-                        parameters_soa.reset(j);
+                        #pragma omp critical
+                        {parameters_soa.reset(j);}
                         for (int k = 0; k < NUM_BOIDS; ++k) {
                             if (j == k) continue;// avoid self-comparison
 
@@ -243,14 +260,20 @@ int main() {
                                 float squared_dist = dx * dx + dy * dy;
 
                                 if (squared_dist < PROTECTED_RANGE * PROTECTED_RANGE) {// check if the boid is too close
-                                    parameters_soa.close_dx[j] += dx;
-                                    parameters_soa.close_dy[j] += dy;
+                                    #pragma omp critical
+                                    {
+                                        parameters_soa.close_dx[j] += dx;
+                                        parameters_soa.close_dy[j] += dy;
+                                    }
                                 } else if (squared_dist < VISUAL_RANGE * VISUAL_RANGE) {// check if the other boid is visible
-                                    parameters_soa.avg_x[j] += boids_soa.x[k];
-                                    parameters_soa.avg_y[j] += boids_soa.y[k];
-                                    parameters_soa.avg_vx[j] += boids_soa.vx[k];
-                                    parameters_soa.avg_vy[j] += boids_soa.vy[k];
-                                    parameters_soa.neighboring_count[j] += 1;
+                                    #pragma omp critical
+                                    {
+                                        parameters_soa.avg_x[j] += boids_soa.x[k];
+                                        parameters_soa.avg_y[j] += boids_soa.y[k];
+                                        parameters_soa.avg_vx[j] += boids_soa.vx[k];
+                                        parameters_soa.avg_vy[j] += boids_soa.vy[k];
+                                        parameters_soa.neighboring_count[j] += 1;
+                                    }
                                 }
                             }
                         }
@@ -258,10 +281,13 @@ int main() {
                     #pragma omp for schedule(static)
                     for(int j = 0; j < NUM_BOIDS; ++j) {//update the boids
                         if (parameters_soa.neighboring_count[j] > 0) {
-                            parameters_soa.avg_x[j] /= parameters_soa.neighboring_count[j];
-                            parameters_soa.avg_y[j] /= parameters_soa.neighboring_count[j];
-                            parameters_soa.avg_vx[j] /= parameters_soa.neighboring_count[j];
-                            parameters_soa.avg_vy[j] /= parameters_soa.neighboring_count[j];
+                            #pragma omp critical
+                            {
+                                parameters_soa.avg_x[j] /= parameters_soa.neighboring_count[j];
+                                parameters_soa.avg_y[j] /= parameters_soa.neighboring_count[j];
+                                parameters_soa.avg_vx[j] /= parameters_soa.neighboring_count[j];
+                                parameters_soa.avg_vy[j] /= parameters_soa.neighboring_count[j];
+                            }
 
                             float new_vx = boids_soa.vx[j];
                             float new_vy = boids_soa.vy[j];
@@ -301,7 +327,7 @@ int main() {
             std::cout<<"parallel soa elapsed time - "<<num_threads<<" threads: "<<soa_values[t*2].count()<<std::endl;
         }
     }
-    saveMapToJSON(soa_values, "parallel_soa.json");
+    saveMapToJSON(soa_values, "naive_parallel_soa.json");
 
     //padded soa benchmark
     std::cout<<"Starting padded soa benchmark"<<std::endl;
@@ -317,11 +343,14 @@ int main() {
             pad_soa_values[num_threads] = std::chrono::duration<double>(0);
             for(int i = 0; i<NUM_MEASUREMENTS; i++) {
                 auto pad_start_soa = std::chrono::high_resolution_clock::now();
-                #pragma omp parallel shared(pad_boids_soa) private(pad_parameters_soa) num_threads(num_threads)
+                #pragma omp parallel num_threads(num_threads)
                 {
                     #pragma omp for schedule(static)
                     for (int j = 0; j < NUM_BOIDS; ++j) {//get the parameters
-                        pad_parameters_soa.reset(j);
+                        #pragma omp critical
+                        {
+                            pad_parameters_soa.reset(j);
+                        }
                         for (int k = 0; k < NUM_BOIDS; ++k) {
                             if (j == k) continue;// avoid self-comparison
 
@@ -332,14 +361,20 @@ int main() {
                                 float squared_dist = dx * dx + dy * dy;
 
                                 if (squared_dist < PROTECTED_RANGE * PROTECTED_RANGE) {// check if the boid is too close
-                                    pad_parameters_soa.close_dx[j] += dx;
-                                    pad_parameters_soa.close_dy[j] += dy;
+                                    #pragma omp critical
+                                    {
+                                        pad_parameters_soa.close_dx[j] += dx;
+                                        pad_parameters_soa.close_dy[j] += dy;
+                                    }
                                 } else if (squared_dist < VISUAL_RANGE * VISUAL_RANGE) {// check if the other boid is visible
-                                    pad_parameters_soa.avg_x[j] += pad_boids_soa.x[k];
-                                    pad_parameters_soa.avg_y[j] += pad_boids_soa.y[k];
-                                    pad_parameters_soa.avg_vx[j] += pad_boids_soa.vx[k];
-                                    pad_parameters_soa.avg_vy[j] += pad_boids_soa.vy[k];
-                                    pad_parameters_soa.neighboring_count[j] += 1;
+                                    #pragma omp critical
+                                    {
+                                        pad_parameters_soa.avg_x[j] += pad_boids_soa.x[k];
+                                        pad_parameters_soa.avg_y[j] += pad_boids_soa.y[k];
+                                        pad_parameters_soa.avg_vx[j] += pad_boids_soa.vx[k];
+                                        pad_parameters_soa.avg_vy[j] += pad_boids_soa.vy[k];
+                                        pad_parameters_soa.neighboring_count[j] += 1;
+                                    }
                                 }
                             }
                         }
@@ -347,10 +382,13 @@ int main() {
                     #pragma omp for schedule(static)
                     for(int j = 0; j < NUM_BOIDS; ++j) {//update the boids
                         if (pad_parameters_soa.neighboring_count[j] > 0) {
-                            pad_parameters_soa.avg_x[j] /= pad_parameters_soa.neighboring_count[j];
-                            pad_parameters_soa.avg_y[j] /= pad_parameters_soa.neighboring_count[j];
-                            pad_parameters_soa.avg_vx[j] /= pad_parameters_soa.neighboring_count[j];
-                            pad_parameters_soa.avg_vy[j] /= pad_parameters_soa.neighboring_count[j];
+                            #pragma omp critical
+                            {
+                                pad_parameters_soa.avg_x[j] /= pad_parameters_soa.neighboring_count[j];
+                                pad_parameters_soa.avg_y[j] /= pad_parameters_soa.neighboring_count[j];
+                                pad_parameters_soa.avg_vx[j] /= pad_parameters_soa.neighboring_count[j];
+                                pad_parameters_soa.avg_vy[j] /= pad_parameters_soa.neighboring_count[j];
+                            }
 
                             float new_vx = pad_boids_soa.vx[j];
                             float new_vy = pad_boids_soa.vy[j];
@@ -385,12 +423,11 @@ int main() {
                 auto pad_end_soa = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double> pad_elapsed_soa = pad_end_soa - pad_start_soa;
                 pad_soa_values[num_threads] += pad_elapsed_soa/NUM_MEASUREMENTS; //normalizing the time by the number
-
             }
             std::cout<<"parallel padded soa elapsed time - "<<num_threads<<" threads: "<<pad_soa_values[t*2].count()<<std::endl;
         }
     }
-    saveMapToJSON(pad_soa_values, "pad_parallel_soa.json");
+    saveMapToJSON(pad_soa_values, "naive_pad_parallel_soa.json");
 
 
     return 0;
