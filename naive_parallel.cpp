@@ -29,6 +29,9 @@ void saveMapToJSON(const std::unordered_map<int, std::chrono::duration<double>>&
 
 
 int main() {
+
+    std::cout<<"Naive parallel implementation"<<std::endl;
+
     //aos benchmark
     std::cout<<"Starting aos benchmark"<<std::endl;
     std::unordered_map<int,std::chrono::duration<double>> aos_values;
@@ -80,7 +83,7 @@ int main() {
                             }
                         }
                     }
-                    #pragma omp  for schedule(static)
+                    #pragma omp for schedule(static)
                     for(int j = 0; j < NUM_BOIDS; ++j) {//update the boids
                         if (parameters_aos[j].neighboring_count > 0) {
                             #pragma omp critical
@@ -120,10 +123,10 @@ int main() {
                             }
                         }
                     }
-                    auto end_aos = std::chrono::high_resolution_clock::now();
-                    std::chrono::duration<double> elapsed_aos = end_aos - start_aos;
-                    aos_values[num_threads] += elapsed_aos/NUM_MEASUREMENTS; //normalizing the time by the number
                 }
+                auto end_aos = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> elapsed_aos = end_aos - start_aos;
+                aos_values[num_threads] += elapsed_aos/NUM_MEASUREMENTS; //normalizing the time by the number
             }
             std::cout<<"parallel aos elapsed time - "<<num_threads<<" threads: "<<aos_values[t*2].count()<<std::endl;
         }

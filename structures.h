@@ -151,6 +151,15 @@ struct BoidsList {
         }
     }
 
+    BoidsList(BoidsList& boids) {
+        for (int i = 0; i < NUM_BOIDS; ++i) {
+            this->x[i] = boids.x[i];
+            this->y[i] = boids.y[i];
+            this->vx[i] = boids.vx[i];
+            this->vy[i] = boids.vy[i];
+        }
+    }
+
     std::pair<float, float> initializeVelocity(int i) {
         float angle = randomFloat(0, 2 * M_PI);
         float vx = std::cos(angle) * MIN_SPEED;
@@ -193,6 +202,15 @@ struct alignas(CACHE_LINE_SIZE) PadBoidsList{
             const std::pair<float,float> speed = initializeVelocity(i);
             vx[i] = speed.first;
             vy[i] = speed.second;
+        }
+    }
+
+    PadBoidsList(PadBoidsList& boids) {
+        for (int i = 0; i < NUM_BOIDS; ++i) {
+            this->x[i] = boids.x[i];
+            this->y[i] = boids.y[i];
+            this->vx[i] = boids.vx[i];
+            this->vy[i] = boids.vy[i];
         }
     }
 

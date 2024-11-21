@@ -35,3 +35,7 @@ add_executable(naive_parallel naive_parallel.cpp
         constants.h
         structures.h)
 target_link_libraries(naive_parallel ${OpenMP_CXX_FLAGS})
+add_executable(better_parallel better_parallel.cpp
+        constants.h
+        structures.h)
+target_link_libraries(better_parallel ${OpenMP_CXX_FLAGS})
