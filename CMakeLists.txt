@@ -26,16 +26,17 @@ add_executable(boids_seq_benchmark boids_seq_benchmark.cpp
         constants.h
         structures.h
 )
-add_executable(boids_parallel_benchmark boids_parallel_benchmark.cpp
-        constants.h
-        structures.h)
-target_link_libraries(boids_parallel_benchmark ${OpenMP_CXX_FLAGS})
-
-add_executable(naive_parallel naive_parallel.cpp
+add_executable(naive_parallel
         constants.h
         structures.h)
 target_link_libraries(naive_parallel ${OpenMP_CXX_FLAGS})
-add_executable(better_parallel better_parallel.cpp
+
+add_executable(good_parallel
+        constants.h
+        structures.h)
+target_link_libraries(good_parallel ${OpenMP_CXX_FLAGS})
+
+add_executable(better_parallel parallel.cpp
         constants.h
         structures.h)
 target_link_libraries(better_parallel ${OpenMP_CXX_FLAGS})

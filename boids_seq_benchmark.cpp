@@ -25,69 +25,6 @@ void saveMapToJSON(const std::unordered_map<int, std::chrono::duration<double>>&
     }
 }
 
-void pad_aos_getParameters(PadBoid* boids, PadParameters* parameters) {
-
-    for (int i = 0; i < NUM_BOIDS; ++i) {
-        parameters[i].reset();
-        for (int k = 0; k < NUM_BOIDS; ++k) {
-            if (i == k) continue;
-
-            float dx = boids[i].x - boids[k].x;
-            float dy = boids[i].y - boids[k].y;
-
-            if (std::abs(dx) < VISUAL_RANGE && std::abs(dy) < VISUAL_RANGE) {
-                float squared_dist = dx * dx + dy * dy;
-
-                if (squared_dist < PROTECTED_RANGE * PROTECTED_RANGE) {
-                    parameters[i].close_dx += dx;
-                    parameters[i].close_dy += dy;
-                } else if (squared_dist < VISUAL_RANGE * VISUAL_RANGE) {
-                    parameters[i].avg_x += boids[k].x;
-                    parameters[i].avg_y += boids[k].y;
-                    parameters[i].avg_vx += boids[k].vx;
-                    parameters[i].avg_vy += boids[k].vy;
-                    parameters[i].neighboring_count += 1;
-                }
-            }
-        }
-    }
-
-}
-
-
-void pad_aos_update(PadBoid* boid, PadParameters* params) {
-    for(int i = 0; i < NUM_BOIDS; ++i) {
-        if (params->neighboring_count > 0) {
-            params->avg_x /= params->neighboring_count;
-            params->avg_y /= params->neighboring_count;
-            params->avg_vx /= params->neighboring_count;
-            params->avg_vy /= params->neighboring_count;
-
-            boid->vx += (params->avg_x - boid->x) * CENTERING_FACTOR + (params->avg_vx - boid->vx) * MATCHING_FACTOR;
-            boid->vy += (params->avg_y - boid->y) * CENTERING_FACTOR + (params->avg_vy - boid->vy) * MATCHING_FACTOR;
-            boid->vx += params->close_dx * AVOID_FACTOR;
-            boid->vy += params->close_dy * AVOID_FACTOR;
-        }
-
-        if (boid->y > TOP_MARGIN) boid->vy -= TURN_FACTOR;
-        if (boid->x > RIGHT_MARGIN) boid->vx -= TURN_FACTOR;
-        if (boid->x < LEFT_MARGIN) boid->vx += TURN_FACTOR;
-        if (boid->y < BOTTOM_MARGIN) boid->vy += TURN_FACTOR;
-
-        float speed = std::sqrt(boid->vx * boid->vx + boid->vy * boid->vy);
-        if (speed > MAX_SPEED) {
-            boid->vx = (boid->vx / speed) * MAX_SPEED;
-            boid->vy = (boid->vy / speed) * MAX_SPEED;
-        } else if (speed < MIN_SPEED) {
-            boid->vx = (boid->vx / speed) * MIN_SPEED;
-            boid->vy = (boid->vy / speed) * MIN_SPEED;
-        }
-
-        boid->x += boid->vx;
-        boid->y += boid->vy;
-    }
-
-}
 
 void aos_getParameters(Boid* boids, Parameters* parameters) {
 
@@ -213,66 +150,6 @@ void soa_update(BoidsList& boids, ParametersList& parameters) {
 
 }
 
-void pad_soa_getParameters(PadBoidsList& boids, PadParametersList& parameters) {
-    for (int i = 0; i < NUM_BOIDS; ++i) {
-        parameters.reset(i);
-        for (int k = 0; k < NUM_BOIDS; ++k) {
-            if (k == i) continue;
-
-            float dx = boids.x[i] - boids.x[k];
-            float dy = boids.y[i] - boids.y[k];
-
-            if (std::abs(dx) < VISUAL_RANGE && std::abs(dy) < VISUAL_RANGE) {
-                float squared_dist = dx * dx + dy * dy;
-
-                if (squared_dist < PROTECTED_RANGE * PROTECTED_RANGE) {
-                    parameters.close_dx[i] += dx;
-                    parameters.close_dy[i] += dy;
-                } else if (squared_dist < VISUAL_RANGE * VISUAL_RANGE) {
-                    parameters.avg_x[i] += boids.x[k];
-                    parameters.avg_y[i] += boids.y[k];
-                    parameters.avg_vx[i] += boids.vx[k];
-                    parameters.avg_vy[i] += boids.vy[k];
-                    parameters.neighboring_count[i] += 1;
-                }
-            }
-        }
-}
-}
-
-void pad_soa_update(PadBoidsList& boids, PadParametersList& parameters) {
-    for(int i = 0; i < NUM_BOIDS; i++) {
-        if (parameters.neighboring_count[i] > 0) {
-            parameters.avg_x[i] /= parameters.neighboring_count[i];
-            parameters.avg_y[i] /= parameters.neighboring_count[i];
-            parameters.avg_vx[i] /= parameters.neighboring_count[i];
-            parameters.avg_vy[i] /= parameters.neighboring_count[i];
-            boids.vx[i] += (parameters.avg_x[i] - boids.x[i]) * CENTERING_FACTOR + (parameters.avg_vx[i] - boids.vx[i]) * MATCHING_FACTOR;
-            boids.vy[i] += (parameters.avg_y[i] - boids.y[i]) * CENTERING_FACTOR + (parameters.avg_vy[i] - boids.vy[i]) * MATCHING_FACTOR;
-            boids.vx[i] += parameters.close_dx[i] * AVOID_FACTOR;
-            boids.vy[i] += parameters.close_dy[i] * AVOID_FACTOR;
-        }
-
-        if (boids.y[i] > TOP_MARGIN) boids.vy[i] -= TURN_FACTOR;
-        if (boids.x[i] > RIGHT_MARGIN) boids.vx[i] -= TURN_FACTOR;
-        if (boids.x[i] < LEFT_MARGIN) boids.vx[i] += TURN_FACTOR;
-        if (boids.y[i] < BOTTOM_MARGIN) boids.vy[i] += TURN_FACTOR;
-
-        float speed = std::sqrt(boids.vx[i] * boids.vx[i] + boids.vy[i] * boids.vy[i]);
-        if (speed > MAX_SPEED) {
-            boids.vx[i] = (boids.vx[i] / speed) * MAX_SPEED;
-            boids.vy[i] = (boids.vy[i] / speed) * MAX_SPEED;
-        } else if (speed < MIN_SPEED) {
-            boids.vx[i] = (boids.vx[i] / speed) * MIN_SPEED;
-            boids.vy[i] = (boids.vy[i] / speed) * MIN_SPEED;
-        }
-
-        boids.x[i] += boids.vx[i];
-        boids.y[i] += boids.vy[i];
-    }
-
-}
-
 
 int main() {
 
@@ -301,24 +178,6 @@ int main() {
     }
     std::cout<<"aos average time: "<<std::accumulate(aos_values, aos_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0)).count()/NUM_MEASUREMENTS<<std::endl;
 
-    for(int t = 0; t < NUM_MEASUREMENTS; t++) {//padded sequential aos
-        PadBoid pad_boids_aos[NUM_BOIDS];
-        PadParameters pad_parameters_aos[NUM_BOIDS];
-
-        for (int i = 0; i < NUM_BOIDS; ++i) {
-            pad_boids_aos[i] = PadBoid();
-        }
-        auto pad_start_aos = std::chrono::high_resolution_clock::now();
-
-        pad_aos_getParameters(pad_boids_aos, pad_parameters_aos);
-        pad_aos_update(pad_boids_aos, pad_parameters_aos);
-
-        auto pad_end_aos = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> pad_elapsed_aos = pad_end_aos - pad_start_aos;
-        pad_aos_values[t] = pad_elapsed_aos;
-    }
-    std::cout<<"padded aos average time: "<<std::accumulate(pad_aos_values, pad_aos_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0)).count()/NUM_MEASUREMENTS<<std::endl;
-
 
     for(int t = 0; t < NUM_MEASUREMENTS; t++) {//sequential soa
 
@@ -336,20 +195,6 @@ int main() {
     }
     std::cout<<"soa average time: "<<std::accumulate(soa_values, soa_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0)).count()/NUM_MEASUREMENTS<<std::endl;
 
-    for(int t = 0; t < NUM_MEASUREMENTS; t++) {//padded sequential soa
-        PadBoidsList pad_boids_soa;
-        PadParametersList pad_parameters_soa;
-
-        auto pad_start_soa = std::chrono::high_resolution_clock::now();
-
-        pad_soa_getParameters(pad_boids_soa, pad_parameters_soa);
-        pad_soa_update(pad_boids_soa, pad_parameters_soa);
-
-        auto pad_end_soa = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> pad_elapsed_soa = pad_end_soa - pad_start_soa;
-        pad_soa_values[t] = pad_elapsed_soa;
-    }
-    std::cout<<"padded soa average time: "<<std::accumulate(pad_soa_values, pad_soa_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0)).count()/NUM_MEASUREMENTS<<std::endl;
 
     return 0;
 }
