@@ -3,11 +3,11 @@
 #include <chrono>
 #include <random>
 #include <unordered_map>
-#include <nlohmann/json.hpp>
 #include <fstream>
 #include <string>
 #include <omp.h>
 #include "structures.h"
+#include <nlohmann/json.hpp>
 
 
 void saveMapToJSON(const std::unordered_map<int, std::chrono::duration<double>>& myMap, const std::string& filename) {
@@ -95,7 +95,7 @@ void update(PadBoidsList* boids, PadParametersList* parameters) {
 
 int main() {
 
-    std::cout<<"Starting padded soa benchmark"<<std::endl;
+    std::cout<<"Starting benchmark"<<std::endl;
     std::unordered_map<int,std::chrono::duration<double>> pad_soa_values;
 
     PadBoidsList* boids = new PadBoidsList();
@@ -129,7 +129,7 @@ int main() {
         }
         std::cout<<"parallel padded soa elapsed time - "<<num_threads<<" threads: "<<pad_soa_values[t*2].count()<<std::endl;
     }
-    saveMapToJSON(pad_soa_values, "best_pad_parallel_soa.json");
+    saveMapToJSON(pad_soa_values, "omp_boids.json");
 
 
     return 0;

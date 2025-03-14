@@ -8,7 +8,7 @@
 constexpr int CACHE_LINE_SIZE = 64;
 
 constexpr int NUM_THREADS_INCREMENTS = 10;
-constexpr int NUM_MEASUREMENTS = 10;
+constexpr int NUM_MEASUREMENTS = 100;
 constexpr int NUM_BOIDS = 40000;
 
 constexpr float TURN_FACTOR = 0.2f;

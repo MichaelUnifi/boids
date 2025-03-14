@@ -154,9 +154,7 @@ void soa_update(BoidsList& boids, ParametersList& parameters) {
 int main() {
 
     std::chrono::duration<double> aos_values[NUM_MEASUREMENTS];
-    std::chrono::duration<double> pad_aos_values[NUM_MEASUREMENTS];
     std::chrono::duration<double> soa_values[NUM_MEASUREMENTS];
-    std::chrono::duration<double> pad_soa_values[NUM_MEASUREMENTS];
     for(int t = 0; t < NUM_MEASUREMENTS; t++) {
         //sequential aos
         Boid boids_aos[NUM_BOIDS];
@@ -194,7 +192,10 @@ int main() {
         soa_values[t] = elapsed_soa;
     }
     std::cout<<"soa average time: "<<std::accumulate(soa_values, soa_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0)).count()/NUM_MEASUREMENTS<<std::endl;
-
+    std::unordered_map<int,std::chrono::duration<double>> sequential_values;
+    sequential_values[0] = std::accumulate(aos_values, aos_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0))/NUM_MEASUREMENTS;
+    sequential_values[1] = std::accumulate(soa_values, soa_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0))/NUM_MEASUREMENTS;
+    saveMapToJSON(sequential_values, "boids_sequential_results.json");
 
     return 0;
 }

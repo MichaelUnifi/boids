@@ -16,27 +16,12 @@ add_executable(boids_visualization boids_visualization.cpp
         structures.h)
 target_link_libraries(boids_visualization sfml-graphics sfml-window sfml-system)
 
-
-# Add executable for parallel version
-#add_executable(parallel parallel.cpp)
-#target_link_libraries(parallel sfml-graphics sfml-window sfml-system ${OpenMP_CXX_FLAGS})
-
-
-add_executable(boids_seq_benchmark boids_seq_benchmark.cpp
+add_executable(sequential sequential.cpp
         constants.h
         structures.h
 )
-add_executable(naive_parallel
-        constants.h
-        structures.h)
-target_link_libraries(naive_parallel ${OpenMP_CXX_FLAGS})
 
-add_executable(good_parallel
+add_executable(parallel parallel.cpp
         constants.h
         structures.h)
-target_link_libraries(good_parallel ${OpenMP_CXX_FLAGS})
-
-add_executable(better_parallel parallel.cpp
-        constants.h
-        structures.h)
-target_link_libraries(better_parallel ${OpenMP_CXX_FLAGS})
+target_link_libraries(parallel ${OpenMP_CXX_FLAGS})
