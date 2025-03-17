@@ -87,6 +87,10 @@ void update(PadBoidsList* boids, PadParametersList* parameters) {
                 new_vx = (new_vx / speed) * MIN_SPEED;
                 new_vy = (new_vy / speed) * MIN_SPEED;
             }
+
+            new_x = new_x + new_vx;
+            new_y = new_y + new_vy;
+
             boids->update(j, new_vx, new_vy, new_x, new_y);
         }
     }
@@ -100,20 +104,23 @@ int main() {
 
     PadBoidsList* boids = new PadBoidsList();
     PadParametersList* parameters = new PadParametersList();
+
     for(int t = 1; t <= NUM_THREADS_INCREMENTS; ++t) {
         int num_threads = t*2;
         omp_set_num_threads(num_threads);
         std::cout<<"Running with "<<omp_get_max_threads()<<" threads"<<std::endl;
         pad_soa_values[num_threads] = std::chrono::duration<double>(0);
-        for(int i = 0; i<NUM_MEASUREMENTS; i++) {
+        for(int i = 0; i < NUM_MEASUREMENTS; i++) {
             auto pad_start_soa = std::chrono::high_resolution_clock::now();
-            #pragma omp parallel shared(boids) firstprivate(parameters) num_threads(num_threads) //firstprivate here gives an initialized copy of the parameters to each thread
+            #pragma omp parallel num_threads(num_threads) shared(boids, num_threads, std::cout) firstprivate(parameters) default(none)
             {
+
                 PadBoidsList* local_boids;
                 local_boids = new PadBoidsList(*boids);
                 getParameters(local_boids, parameters);
                 update(local_boids, parameters);
-                #pragma omp for
+
+                #pragma omp for schedule(static)
                 for(int j = 0; j < NUM_BOIDS; j++) {
                     #pragma omp critical
                     {
@@ -121,16 +128,14 @@ int main() {
                     }
                 }
             }
-
             auto pad_end_soa = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> pad_elapsed_soa = pad_end_soa - pad_start_soa;
-            pad_soa_values[num_threads] += pad_elapsed_soa/NUM_MEASUREMENTS; //normalizing the time by the number
-
+            pad_soa_values[num_threads] += pad_elapsed_soa;
         }
-        std::cout<<"parallel padded soa elapsed time - "<<num_threads<<" threads: "<<pad_soa_values[t*2].count()<<std::endl;
+        pad_soa_values[num_threads] /= NUM_MEASUREMENTS;
+        std::cout<<"parallel padded soa elapsed time - "<<num_threads<<" threads: "<<pad_soa_values[num_threads].count()<<std::endl;
     }
     saveMapToJSON(pad_soa_values, "omp_boids.json");
-
 
     return 0;
 }

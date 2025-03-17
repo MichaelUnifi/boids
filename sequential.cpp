@@ -26,7 +26,7 @@ void saveMapToJSON(const std::unordered_map<int, std::chrono::duration<double>>&
 }
 
 
-void aos_getParameters(Boid* boids, Parameters* parameters) {
+void aos_getParameters(PadBoid* boids, PadParameters* parameters) {
 
     for (int i = 0; i < NUM_BOIDS; ++i) {
         parameters[i].reset();
@@ -56,7 +56,7 @@ void aos_getParameters(Boid* boids, Parameters* parameters) {
 }
 
 
-void aos_update(Boid* boid, Parameters* params) {
+void aos_update(PadBoid* boid, PadParameters* params) {
     for(int i = 0; i < NUM_BOIDS; ++i) {
         if (params->neighboring_count > 0) {
             params->avg_x /= params->neighboring_count;
@@ -90,7 +90,7 @@ void aos_update(Boid* boid, Parameters* params) {
 
 }
 
-void soa_getParameters(BoidsList& boids, ParametersList& parameters) {
+void soa_getParameters(PadBoidsList& boids, PadParametersList& parameters) {
     for (int i = 0; i < NUM_BOIDS; ++i) {
         parameters.reset(i);
         for (int k = 0; k < NUM_BOIDS; ++k) {
@@ -117,7 +117,7 @@ void soa_getParameters(BoidsList& boids, ParametersList& parameters) {
 }
 }
 
-void soa_update(BoidsList& boids, ParametersList& parameters) {
+void soa_update(PadBoidsList& boids, PadParametersList& parameters) {
     for(int i = 0; i < NUM_BOIDS; i++) {
         if (parameters.neighboring_count[i] > 0) {
             parameters.avg_x[i] /= parameters.neighboring_count[i];
@@ -155,14 +155,15 @@ int main() {
 
     std::chrono::duration<double> aos_values[NUM_MEASUREMENTS];
     std::chrono::duration<double> soa_values[NUM_MEASUREMENTS];
-    for(int t = 0; t < NUM_MEASUREMENTS; t++) {
-        //sequential aos
-        Boid boids_aos[NUM_BOIDS];
-        Parameters parameters_aos[NUM_BOIDS];
+    //sequential aos
+    PadBoid boids_aos[NUM_BOIDS];
+    PadParameters parameters_aos[NUM_BOIDS];
 
-        for (int i = 0; i < NUM_BOIDS; ++i) {
-            boids_aos[i] = Boid();
-        }
+    for (int i = 0; i < NUM_BOIDS; ++i) {
+        boids_aos[i] = PadBoid();
+    }
+    for(int t = 0; t < NUM_MEASUREMENTS; t++) {
+
         auto start_aos = std::chrono::high_resolution_clock::now();
 
         aos_getParameters(boids_aos, parameters_aos);
@@ -176,11 +177,12 @@ int main() {
     }
     std::cout<<"aos average time: "<<std::accumulate(aos_values, aos_values + NUM_MEASUREMENTS, std::chrono::duration<double>(0)).count()/NUM_MEASUREMENTS<<std::endl;
 
+    PadBoidsList boids_soa;
+    PadParametersList parameters_soa;
 
     for(int t = 0; t < NUM_MEASUREMENTS; t++) {//sequential soa
 
-        BoidsList boids_soa;
-        ParametersList parameters_soa;
+
 
         auto start_soa = std::chrono::high_resolution_clock::now();
 
