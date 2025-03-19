@@ -3,9 +3,10 @@
 #include <iostream>
 #include <chrono>
 #include <random>
+
 const int NUM_BOIDS = 300;
 
-// Constants for Boid behavior
+// Constants for Boid behavior, note that the number of boids has been reduced to 300 for a simple visualization
 const float TURN_FACTOR = 0.2f;
 const float MAX_SPEED = 6.0f;
 const float MIN_SPEED = 3.0f;
@@ -179,7 +180,7 @@ int main() {
             // Create a line (rectangle) to represent the boid's orientation
             float length = 10.0f; // Line length
             sf::RectangleShape boidShape(sf::Vector2f(length, 2.0f)); // Width of 2 for thin line
-            boidShape.setFillColor(sf::Color::White);
+            boidShape.setFillColor(sf::Color(255, 105, 180));
 
             // Position the line at the boid's location
             boidShape.setPosition(boids[i].x, boids[i].y);

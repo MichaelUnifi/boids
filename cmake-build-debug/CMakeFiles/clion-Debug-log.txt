@@ -1,5 +1,20 @@
-/home/michael/temp/cmake-3.29.8/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "Unix Makefiles" -S /home/michael/CLionProjects/boids -B /home/michael/CLionProjects/boids/cmake-build-debug
--- Found SFML 2.6.1 in /usr/lib/x86_64-linux-gnu/cmake/SFML
--- Configuring done (0.0s)
+/home/michael/temp/cmake-3.29.8/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=-fopenmp -G "Unix Makefiles" -S /home/michael/CLionProjects/boids -B /home/michael/CLionProjects/boids/cmake-build-debug
+-- The C compiler identification is GNU 13.3.0
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found SFML 2.5.1 in /usr/local/lib/cmake/SFML
+-- Found OpenMP_C: -fopenmp (found version "4.5")
+-- Found OpenMP_CXX: -fopenmp (found version "4.5")
+-- Found OpenMP: TRUE (found version "4.5")
+-- Configuring done (1.3s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/michael/CLionProjects/boids/cmake-build-debug
