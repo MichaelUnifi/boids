@@ -114,7 +114,7 @@ void soa_getParameters(PadBoidsList& boids, PadParametersList& parameters) {
                 }
             }
         }
-}
+    }
 }
 
 void soa_update(PadBoidsList& boids, PadParametersList& parameters) {
