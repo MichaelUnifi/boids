@@ -26,7 +26,7 @@ void saveMapToJSON(const std::unordered_map<int, std::chrono::duration<double>>&
 }
 
 
-void aos_getParameters(PadBoid* boids, PadParameters* parameters) {
+void aosGetParameters(PadBoid* boids, PadParameters* parameters) {
 
     for (int i = 0; i < NUM_BOIDS; ++i) {
         parameters[i].reset();
@@ -52,11 +52,10 @@ void aos_getParameters(PadBoid* boids, PadParameters* parameters) {
             }
         }
     }
-
 }
 
 
-void aos_update(PadBoid* boid, PadParameters* params) {
+void aosUpdate(PadBoid* boids, PadParameters* params) {
     for(int i = 0; i < NUM_BOIDS; ++i) {
         if (params->neighboring_count > 0) {
             params->avg_x /= params->neighboring_count;
@@ -64,33 +63,32 @@ void aos_update(PadBoid* boid, PadParameters* params) {
             params->avg_vx /= params->neighboring_count;
             params->avg_vy /= params->neighboring_count;
 
-            boid->vx += (params->avg_x - boid->x) * CENTERING_FACTOR + (params->avg_vx - boid->vx) * MATCHING_FACTOR;
-            boid->vy += (params->avg_y - boid->y) * CENTERING_FACTOR + (params->avg_vy - boid->vy) * MATCHING_FACTOR;
-            boid->vx += params->close_dx * AVOID_FACTOR;
-            boid->vy += params->close_dy * AVOID_FACTOR;
+            boids->vx += (params->avg_x - boids->x) * CENTERING_FACTOR + (params->avg_vx - boids->vx) * MATCHING_FACTOR;
+            boids->vy += (params->avg_y - boids->y) * CENTERING_FACTOR + (params->avg_vy - boids->vy) * MATCHING_FACTOR;
+            boids->vx += params->close_dx * AVOID_FACTOR;
+            boids->vy += params->close_dy * AVOID_FACTOR;
         }
 
-        if (boid->y > TOP_MARGIN) boid->vy -= TURN_FACTOR;
-        if (boid->x > RIGHT_MARGIN) boid->vx -= TURN_FACTOR;
-        if (boid->x < LEFT_MARGIN) boid->vx += TURN_FACTOR;
-        if (boid->y < BOTTOM_MARGIN) boid->vy += TURN_FACTOR;
+        if (boids->y > TOP_MARGIN) boids->vy -= TURN_FACTOR;
+        if (boids->x > RIGHT_MARGIN) boids->vx -= TURN_FACTOR;
+        if (boids->x < LEFT_MARGIN) boids->vx += TURN_FACTOR;
+        if (boids->y < BOTTOM_MARGIN) boids->vy += TURN_FACTOR;
 
-        float speed = std::sqrt(boid->vx * boid->vx + boid->vy * boid->vy);
+        float speed = std::sqrt(boids->vx * boids->vx + boids->vy * boids->vy);
         if (speed > MAX_SPEED) {
-            boid->vx = (boid->vx / speed) * MAX_SPEED;
-            boid->vy = (boid->vy / speed) * MAX_SPEED;
+            boids->vx = (boids->vx / speed) * MAX_SPEED;
+            boids->vy = (boids->vy / speed) * MAX_SPEED;
         } else if (speed < MIN_SPEED) {
-            boid->vx = (boid->vx / speed) * MIN_SPEED;
-            boid->vy = (boid->vy / speed) * MIN_SPEED;
+            boids->vx = (boids->vx / speed) * MIN_SPEED;
+            boids->vy = (boids->vy / speed) * MIN_SPEED;
         }
 
-        boid->x += boid->vx;
-        boid->y += boid->vy;
+        boids->x += boids->vx;
+        boids->y += boids->vy;
     }
-
 }
 
-void soa_getParameters(PadBoidsList& boids, PadParametersList& parameters) {
+void soaGetParameters(PadBoidsList& boids, PadParametersList& parameters) {
     for (int i = 0; i < NUM_BOIDS; ++i) {
         parameters.reset(i);
         for (int k = 0; k < NUM_BOIDS; ++k) {
@@ -117,7 +115,7 @@ void soa_getParameters(PadBoidsList& boids, PadParametersList& parameters) {
     }
 }
 
-void soa_update(PadBoidsList& boids, PadParametersList& parameters) {
+void soaUpdate(PadBoidsList& boids, PadParametersList& parameters) {
     for(int i = 0; i < NUM_BOIDS; i++) {
         if (parameters.neighboring_count[i] > 0) {
             parameters.avg_x[i] /= parameters.neighboring_count[i];
@@ -166,8 +164,8 @@ int main() {
 
         auto start_aos = std::chrono::high_resolution_clock::now();
 
-        aos_getParameters(boids_aos, parameters_aos);
-        aos_update(boids_aos, parameters_aos);
+        aosGetParameters(boids_aos, parameters_aos);
+        aosUpdate(boids_aos, parameters_aos);
 
 
         auto end_aos = std::chrono::high_resolution_clock::now();
@@ -181,13 +179,10 @@ int main() {
     PadParametersList parameters_soa;
 
     for(int t = 0; t < NUM_MEASUREMENTS; t++) {//sequential soa
-
-
-
         auto start_soa = std::chrono::high_resolution_clock::now();
 
-        soa_getParameters(boids_soa, parameters_soa);
-        soa_update(boids_soa, parameters_soa);
+        soaGetParameters(boids_soa, parameters_soa);
+        soaUpdate(boids_soa, parameters_soa);
 
         auto end_soa = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_soa = end_soa - start_soa;

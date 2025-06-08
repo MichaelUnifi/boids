@@ -15,6 +15,6 @@
 -- Found OpenMP_C: -fopenmp (found version "4.5")
 -- Found OpenMP_CXX: -fopenmp (found version "4.5")
 -- Found OpenMP: TRUE (found version "4.5")
--- Configuring done (1.3s)
+-- Configuring done (1.4s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/michael/CLionProjects/boids/cmake-build-debug

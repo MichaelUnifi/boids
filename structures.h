@@ -1,243 +1,259 @@
-#include <random>
-#include "constants.h"
-
 #ifndef STRUCTURES_H
 #define STRUCTURES_H
 
-inline float randomFloat(float min, float max) {
+#include <random>
+#include <cmath>
+#include <utility>
+#include "constants.h"  // must define WINDOW_WIDTH, WINDOW_HEIGHT, MIN_SPEED, CACHE_LINE_SIZE, NUM_BOIDS
+
+//
+// Common helper: return a velocity vector whose magnitude is at least MIN_SPEED.
+// Used by both single-Boid and array-Boid variants.
+//
+inline std::pair<float, float> initializeVelocity() {
     static std::default_random_engine generator(std::random_device{}());
-    std::uniform_real_distribution<float> distribution(min, max);
-    return distribution(generator);
+    std::uniform_real_distribution<float> angleDist(0.0f, 2.0f * static_cast<float>(M_PI));
+    float angle = angleDist(generator);
+
+    // Base velocity of magnitude MIN_SPEED in a random direction
+    float vx = std::cos(angle) * MIN_SPEED;
+    float vy = std::sin(angle) * MIN_SPEED;
+
+    // Add a small random “jitter” in [-1, +1] to each component
+    std::uniform_real_distribution<float> jitterDist(-1.0f, 1.0f);
+    vx += jitterDist(generator);
+    vy += jitterDist(generator);
+
+    // If the new speed is below MIN_SPEED, re‐normalize up to exactly MIN_SPEED
+    float speed = std::sqrt(vx * vx + vy * vy);
+    if (speed < MIN_SPEED) {
+        float factor = MIN_SPEED / speed;
+        vx *= factor;
+        vy *= factor;
+    }
+    return {vx, vy};
 }
 
+//
+// Common helper: generate a random float in [min, max].
+//
+inline float randomFloat(float min, float max) {
+    static std::default_random_engine generator(std::random_device{}());
+    std::uniform_real_distribution<float> dist(min, max);
+    return dist(generator);
+}
+
+//
+// ——————————————————————————————————————————————————————————————————————————
+// Single‐Boid (unpacked) and Single‐Boid (padded) structs
+// ——————————————————————————————————————————————————————————————————————————
+//
+
 struct Boid {
-    float x, y;   // Position
-    float vx, vy; // Velocity
+    float x, y;    // Position
+    float vx, vy;  // Velocity
 
-    Boid(const float px, const float py) : x(px), y(py) {
-        const std::pair<float,float> speed = initializeVelocity();
-        vx = speed.first;
-        vy = speed.second;
+    // Initialize at (px, py), then pick a random velocity ≥ MIN_SPEED
+    Boid(float px, float py)
+        : x(px), y(py)
+    {
+        auto vel = initializeVelocity();
+        vx = vel.first;
+        vy = vel.second;
     }
 
-    Boid() : x(randomFloat(0, WINDOW_WIDTH)), y(randomFloat(0, WINDOW_HEIGHT)) {
-        const std::pair<float, float> speed = initializeVelocity();
-        vx = speed.first;
-        vy = speed.second;
+    // Default‐construct at random screen position, then pick a random velocity
+    Boid()
+        : x(randomFloat(0.0f, WINDOW_WIDTH)),
+          y(randomFloat(0.0f, WINDOW_HEIGHT))
+    {
+        auto vel = initializeVelocity();
+        vx = vel.first;
+        vy = vel.second;
     }
 
-    std::pair<float, float> initializeVelocity() {
-        float angle = randomFloat(0, 2 * M_PI);
-        vx = std::cos(angle) * MIN_SPEED;
-        vy = std::sin(angle) * MIN_SPEED;
-
-        vx += randomFloat(-1.0f, 1.0f);
-        vy += randomFloat(-1.0f, 1.0f);
-
-        float speed = std::sqrt(vx * vx + vy * vy);
-        if (speed < MIN_SPEED) {
-            vx = (vx / speed) * MIN_SPEED;
-            vy = (vy / speed) * MIN_SPEED;
-        }
-        return std::make_pair(vx, vy);
-    }
-
-    void update(float& vx, float& vy, float& x, float& y) {
-        this->vx = vx;
-        this->vy = vy;
-        this->x = x;
-        this->y = y;
+    // Overwrite position/velocity
+    void update(float& newVx, float& newVy, float& newX, float& newY) {
+        vx = newVx;
+        vy = newVy;
+        x  = newX;
+        y  = newY;
     }
 };
 
 struct alignas(CACHE_LINE_SIZE) PadBoid {
-    float x;
-    float y;
-    float vx;
-    float vy;
-    char pad[CACHE_LINE_SIZE > sizeof(float) * 4 ? CACHE_LINE_SIZE - sizeof(float) * 4 : 1];
+    float x, y;    // Position
+    float vx, vy;  // Velocity
+    // Pad out to at least one full cache line:
+    char pad[ (CACHE_LINE_SIZE > sizeof(float)*4) ? (CACHE_LINE_SIZE - sizeof(float)*4) : 1 ];
 
-    PadBoid(const float px, const float py) : x(px), y(py) {
-        const std::pair<float,float> speed = initializeVelocity();
-        vx = speed.first;
-        vy = speed.second;
+    PadBoid(float px, float py)
+        : x(px), y(py)
+    {
+        auto vel = initializeVelocity();
+        vx = vel.first;
+        vy = vel.second;
     }
 
-    PadBoid() : x(randomFloat(0, WINDOW_WIDTH)), y(randomFloat(0, WINDOW_HEIGHT)) {
-        const std::pair<float, float> speed = initializeVelocity();
-        vx = speed.first;
-        vy = speed.second;
+    PadBoid()
+        : x(randomFloat(0.0f, WINDOW_WIDTH)),
+          y(randomFloat(0.0f, WINDOW_HEIGHT))
+    {
+        auto vel = initializeVelocity();
+        vx = vel.first;
+        vy = vel.second;
     }
+    PadBoid(PadBoid& other)
+        : x(other.x), y(other.y), vx(other.vx), vy(other.vy) {}
 
-    std::pair<float, float> initializeVelocity() {
-        float angle = randomFloat(0, 2 * M_PI);
-        vx = std::cos(angle) * MIN_SPEED;
-        vy = std::sin(angle) * MIN_SPEED;
-
-        vx += randomFloat(-1.0f, 1.0f);
-        vy += randomFloat(-1.0f, 1.0f);
-
-        float speed = std::sqrt(vx * vx + vy * vy);
-        if (speed < MIN_SPEED) {
-            vx = (vx / speed) * MIN_SPEED;
-            vy = (vy / speed) * MIN_SPEED;
-        }
-        return std::make_pair(vx, vy);
-    }
-
-    void update(float& vx, float& vy, float& x, float& y) {
-        this->vx = vx;
-        this->vy = vy;
-        this->x = x;
-        this->y = y;
+    void update(float& newVx, float& newVy, float& newX, float& newY) {
+        vx = newVx;
+        vy = newVy;
+        x  = newX;
+        y  = newY;
     }
 };
 
-// Similarly remove alignas from Parameters for debugging
+//
+// ——————————————————————————————————————————————————————————————————————————
+// Single‐Parameters (unpacked) and Single‐Parameters (padded) structs
+// ——————————————————————————————————————————————————————————————————————————
+//
+
 struct Parameters {
-    float close_dx, close_dy, avg_vx, avg_vy, avg_x, avg_y, neighboring_count;
-
-    Parameters() : close_dx(0), close_dy(0), avg_vx(0), avg_vy(0), avg_x(0), avg_y(0), neighboring_count(0) {}
-
-    void reset() {
-        close_dx = 0;
-        close_dy = 0;
-        avg_vx = 0;
-        avg_vy = 0;
-        avg_x = 0;
-        avg_y = 0;
-        neighboring_count = 0;
-    }
-};
-
-struct alignas(CACHE_LINE_SIZE) PadParameters{
-    float close_dx;
-    float close_dy;
-    float avg_vx;
-    float avg_vy;
-    float avg_x;
-    float avg_y;
+    float close_dx, close_dy;
+    float avg_vx,    avg_vy;
+    float avg_x,     avg_y;
     float neighboring_count;
-    char pad[CACHE_LINE_SIZE > sizeof(float) * 7 ? CACHE_LINE_SIZE - sizeof(float ) * 7 : 1];
 
-    PadParameters() : close_dx(0), close_dy(0), avg_vx(0), avg_vy(0), avg_x(0), avg_y(0), neighboring_count(0) {}
+    Parameters()
+        : close_dx(0.0f), close_dy(0.0f),
+          avg_vx(0.0f),   avg_vy(0.0f),
+          avg_x(0.0f),    avg_y(0.0f),
+          neighboring_count(0.0f)
+    {}
 
     void reset() {
-        close_dx = 0;
-        close_dy = 0;
-        avg_vx = 0;
-        avg_vy = 0;
-        avg_x = 0;
-        avg_y = 0;
-        neighboring_count = 0;
+        close_dx         = 0.0f;
+        close_dy         = 0.0f;
+        avg_vx           = 0.0f;
+        avg_vy           = 0.0f;
+        avg_x            = 0.0f;
+        avg_y            = 0.0f;
+        neighboring_count = 0.0f;
     }
 };
 
+struct alignas(CACHE_LINE_SIZE) PadParameters {
+    float close_dx, close_dy;
+    float avg_vx,    avg_vy;
+    float avg_x,     avg_y;
+    float neighboring_count;
+    // Pad out so the struct occupies exactly one cache line (or more):
+    char pad[ (CACHE_LINE_SIZE > sizeof(float)*7) ? (CACHE_LINE_SIZE - sizeof(float)*7) : 1 ];
+
+    PadParameters()
+        : close_dx(0.0f), close_dy(0.0f),
+          avg_vx(0.0f),   avg_vy(0.0f),
+          avg_x(0.0f),    avg_y(0.0f),
+          neighboring_count(0.0f)
+    {}
+
+    void reset() {
+        close_dx         = 0.0f;
+        close_dy         = 0.0f;
+        avg_vx           = 0.0f;
+        avg_vy           = 0.0f;
+        avg_x            = 0.0f;
+        avg_y            = 0.0f;
+        neighboring_count = 0.0f;
+    }
+};
+
+//
+// ——————————————————————————————————————————————————————————————————————————
+// Array‐of‐Boids (unpacked) and Array‐of‐Boids (padded) structs
+// ——————————————————————————————————————————————————————————————————————————
+//
 
 struct BoidsList {
     float x[NUM_BOIDS];
     float y[NUM_BOIDS];
     float vx[NUM_BOIDS];
     float vy[NUM_BOIDS];
-    char pad[CACHE_LINE_SIZE > sizeof(float) * 4 * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * 4 * NUM_BOIDS : 1];
+    // Pad so that the entire arrays of floats plus this pad field fit in (or exceed) one cache line:
+    char pad[ (CACHE_LINE_SIZE > sizeof(float)*4*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*4*NUM_BOIDS) : 1 ];
 
     BoidsList() {
         for (int i = 0; i < NUM_BOIDS; ++i) {
-            x[i] = randomFloat(0, WINDOW_WIDTH);
-            y[i] = randomFloat(0, WINDOW_HEIGHT);
-            const std::pair<float,float> speed = initializeVelocity(i);
-            vx[i] = speed.first;
-            vy[i] = speed.second;
+            x[i]   = randomFloat(0.0f, WINDOW_WIDTH);
+            y[i]   = randomFloat(0.0f, WINDOW_HEIGHT);
+            auto vel = initializeVelocity();
+            vx[i]  = vel.first;
+            vy[i]  = vel.second;
         }
     }
 
-    BoidsList(BoidsList& boids) {
+    // “Copy constructor” (just copies elementwise)
+    BoidsList(const BoidsList& other) {
         for (int i = 0; i < NUM_BOIDS; ++i) {
-            this->x[i] = boids.x[i];
-            this->y[i] = boids.y[i];
-            this->vx[i] = boids.vx[i];
-            this->vy[i] = boids.vy[i];
+            x[i]  = other.x[i];
+            y[i]  = other.y[i];
+            vx[i] = other.vx[i];
+            vy[i] = other.vy[i];
         }
     }
 
-    std::pair<float, float> initializeVelocity(int i) {
-        float angle = randomFloat(0, 2 * M_PI);
-        float vx = std::cos(angle) * MIN_SPEED;
-        float vy = std::sin(angle) * MIN_SPEED;
-
-        vx += randomFloat(-1.0f, 1.0f);
-        vy += randomFloat(-1.0f, 1.0f);
-
-        float speed = std::sqrt(vx * vx + vy * vy);
-        if (speed < MIN_SPEED) {
-            vx = (vx / speed) * MIN_SPEED;
-            vy = (vy / speed) * MIN_SPEED;
-        }
-        return std::make_pair(vx, vy);
+    void update(int& idx, float& newVx, float& newVy, float& newX, float& newY) {
+        vx[idx] = newVx;
+        vy[idx] = newVy;
+        x[idx]  = newX;
+        y[idx]  = newY;
     }
-
-    void update(int& i, float& vx, float& vy, float& x, float& y) {
-        this->vx[i] = vx;
-        this->vy[i] = vy;
-        this->x[i] = x;
-        this->y[i] = y;
-    }
-
 };
 
-struct alignas(CACHE_LINE_SIZE) PadBoidsList{
+struct alignas(CACHE_LINE_SIZE) PadBoidsList {
     float x[NUM_BOIDS];
-    char pad[CACHE_LINE_SIZE > sizeof(float) * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * NUM_BOIDS : 1];
+    char pad1[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
     float y[NUM_BOIDS];
-    char pad2[CACHE_LINE_SIZE > sizeof(float) * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * NUM_BOIDS : 1];
+    char pad2[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
     float vx[NUM_BOIDS];
-    char pad3[CACHE_LINE_SIZE > sizeof(float) * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * NUM_BOIDS : 1];
+    char pad3[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
     float vy[NUM_BOIDS];
-    char pad4[CACHE_LINE_SIZE > sizeof(float) * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * NUM_BOIDS : 1];
+    char pad4[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
 
     PadBoidsList() {
         for (int i = 0; i < NUM_BOIDS; ++i) {
-            x[i] = randomFloat(0, WINDOW_WIDTH);
-            y[i] = randomFloat(0, WINDOW_HEIGHT);
-            const std::pair<float,float> speed = initializeVelocity(i);
-            vx[i] = speed.first;
-            vy[i] = speed.second;
+            x[i]   = randomFloat(0.0f, WINDOW_WIDTH);
+            y[i]   = randomFloat(0.0f, WINDOW_HEIGHT);
+            auto vel = initializeVelocity();
+            vx[i]  = vel.first;
+            vy[i]  = vel.second;
         }
     }
 
-    PadBoidsList(PadBoidsList& boids) {
+    PadBoidsList(const PadBoidsList& other) {
         for (int i = 0; i < NUM_BOIDS; ++i) {
-            this->x[i] = boids.x[i];
-            this->y[i] = boids.y[i];
-            this->vx[i] = boids.vx[i];
-            this->vy[i] = boids.vy[i];
+            x[i]  = other.x[i];
+            y[i]  = other.y[i];
+            vx[i] = other.vx[i];
+            vy[i] = other.vy[i];
         }
     }
 
-    std::pair<float, float> initializeVelocity(int i) {
-        float angle = randomFloat(0, 2 * M_PI);
-        float vx = std::cos(angle) * MIN_SPEED;
-        float vy = std::sin(angle) * MIN_SPEED;
-
-        vx += randomFloat(-1.0f, 1.0f);
-        vy += randomFloat(-1.0f, 1.0f);
-
-        float speed = std::sqrt(vx * vx + vy * vy);
-        if (speed < MIN_SPEED) {
-            vx = (vx / speed) * MIN_SPEED;
-            vy = (vy / speed) * MIN_SPEED;
-        }
-        return std::make_pair(vx, vy);
+    void update(int& idx, float& newVx, float& newVy, float& newX, float& newY) {
+        vx[idx] = newVx;
+        vy[idx] = newVy;
+        x[idx]  = newX;
+        y[idx]  = newY;
     }
-
-    void update(int& i, float& vx, float& vy, float& x, float& y){
-        this->vx[i] = vx;
-        this->vy[i] = vy;
-        this->x[i] = x;
-        this->y[i] = y;
-    }
-
 };
+
+//
+// ——————————————————————————————————————————————————————————————————————————
+// Array‐of‐Parameters (unpacked) and Array‐of‐Parameters (padded) structs
+// ——————————————————————————————————————————————————————————————————————————
+//
 
 struct ParametersList {
     float close_dx[NUM_BOIDS];
@@ -250,67 +266,66 @@ struct ParametersList {
 
     ParametersList() {
         for (int i = 0; i < NUM_BOIDS; ++i) {
-            close_dx[i] = 0;
-            close_dy[i] = 0;
-            avg_vx[i] = 0;
-            avg_vy[i] = 0;
-            avg_x[i] = 0;
-            avg_y[i] = 0;
-            neighboring_count[i] = 0;
+            close_dx[i]         = 0.0f;
+            close_dy[i]         = 0.0f;
+            avg_vx[i]           = 0.0f;
+            avg_vy[i]           = 0.0f;
+            avg_x[i]            = 0.0f;
+            avg_y[i]            = 0.0f;
+            neighboring_count[i] = 0.0f;
         }
     }
 
-    void reset(int& i) {
-        this->close_dx[i] = 0;
-        this->close_dy[i] = 0;
-        this->avg_vx[i] = 0;
-        this->avg_vy[i] = 0;
-        this->avg_x[i] = 0;
-        this->avg_y[i] = 0;
-        this->neighboring_count[i] = 0;
-
+    // Reset only one boid’s slot
+    void reset(int& idx) {
+        close_dx[idx]         = 0.0f;
+        close_dy[idx]         = 0.0f;
+        avg_vx[idx]           = 0.0f;
+        avg_vy[idx]           = 0.0f;
+        avg_x[idx]            = 0.0f;
+        avg_y[idx]            = 0.0f;
+        neighboring_count[idx] = 0.0f;
     }
-
 };
 
-struct alignas(CACHE_LINE_SIZE) PadParametersList{
+struct alignas(CACHE_LINE_SIZE) PadParametersList {
     float close_dx[NUM_BOIDS];
-    char pad[CACHE_LINE_SIZE > sizeof(float) * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * NUM_BOIDS : 1];
+    char pad1[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
     float close_dy[NUM_BOIDS];
-    char pad2[CACHE_LINE_SIZE > sizeof(float) * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * NUM_BOIDS : 1];
+    char pad2[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
     float avg_vx[NUM_BOIDS];
-    char pad3[CACHE_LINE_SIZE > sizeof(float) * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * NUM_BOIDS : 1];
+    char pad3[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
     float avg_vy[NUM_BOIDS];
-    char pad4[CACHE_LINE_SIZE > sizeof(float) * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * NUM_BOIDS : 1];
+    char pad4[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
     float avg_x[NUM_BOIDS];
-    char pad5[CACHE_LINE_SIZE > sizeof(float) * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * NUM_BOIDS : 1];
+    char pad5[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
     float avg_y[NUM_BOIDS];
-    char pad6[CACHE_LINE_SIZE > sizeof(float) * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * NUM_BOIDS : 1];
+    char pad6[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
     float neighboring_count[NUM_BOIDS];
-    char pad7[CACHE_LINE_SIZE > sizeof(float) * NUM_BOIDS ? CACHE_LINE_SIZE - sizeof(float) * 7 * NUM_BOIDS : 1];
+    // Ensure we fill out the last pad so the entire block is ≥ one cache line
+    char pad7[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
 
     PadParametersList() {
         for (int i = 0; i < NUM_BOIDS; ++i) {
-            close_dx[i] = 0;
-            close_dy[i] = 0;
-            avg_vx[i] = 0;
-            avg_vy[i] = 0;
-            avg_x[i] = 0;
-            avg_y[i] = 0;
-            neighboring_count[i] = 0;
+            close_dx[i]         = 0.0f;
+            close_dy[i]         = 0.0f;
+            avg_vx[i]           = 0.0f;
+            avg_vy[i]           = 0.0f;
+            avg_x[i]            = 0.0f;
+            avg_y[i]            = 0.0f;
+            neighboring_count[i] = 0.0f;
         }
     }
 
-    void reset(int& i) {
-        this->close_dx[i] = 0;
-        this->close_dy[i] = 0;
-        this->avg_vx[i] = 0;
-        this->avg_vy[i] = 0;
-        this->avg_x[i] = 0;
-        this->avg_y[i] = 0;
-        this->neighboring_count[i] = 0;
+    void reset(int& idx) {
+        close_dx[idx]         = 0.0f;
+        close_dy[idx]         = 0.0f;
+        avg_vx[idx]           = 0.0f;
+        avg_vy[idx]           = 0.0f;
+        avg_x[idx]            = 0.0f;
+        avg_y[idx]            = 0.0f;
+        neighboring_count[idx] = 0.0f;
     }
-
 };
 
-#endif //STRUCTURES_H
+#endif // STRUCTURES_H
