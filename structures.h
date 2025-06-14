@@ -302,7 +302,6 @@ struct alignas(CACHE_LINE_SIZE) PadParametersList {
     float avg_y[NUM_BOIDS];
     char pad6[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
     float neighboring_count[NUM_BOIDS];
-    // Ensure we fill out the last pad so the entire block is ≥ one cache line
     char pad7[ (CACHE_LINE_SIZE > sizeof(float)*NUM_BOIDS) ? (CACHE_LINE_SIZE - sizeof(float)*NUM_BOIDS) : 1 ];
 
     PadParametersList() {
